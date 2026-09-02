@@ -68,6 +68,24 @@ public class GiveBManager {
         updateGivebackStatus(playerUUID);
     }
 
+    public static void cleanAllExpiredDrops() {
+        if (RECOVERABLE_DROPS.isEmpty()) return;
+        long retentionMillis = GiveBConfig.DATA.retentionTimeMinutes * 60L * 1000L;
+        long now = System.currentTimeMillis();
+
+        RECOVERABLE_DROPS.entrySet().removeIf(entry -> {
+            List<StoredDrop> drops = entry.getValue();
+            if (drops != null) {
+                drops.removeIf(drop -> (now - drop.timestamp) > retentionMillis);
+                if (drops.isEmpty()) {
+                    updateGivebackStatus(entry.getKey());
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
     // Trava de segurança para ser chamada antes de abrir a GUI do Giveback ou resgatar itens
     public static boolean canAccessGiveback(ServerPlayer player) {
         FXPlayerData data = PlayerDataManager.get(player.getUUID());

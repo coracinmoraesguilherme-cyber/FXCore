@@ -31,6 +31,7 @@ public class FXLagView {
 
         // 1. Mapeia todas as entidades e identifica chunks ocupadas
         for (Entity entity : level.getAllEntities()) {
+            if (entity == null || entity.isRemoved()) continue;
             ChunkPos cPos = entity.chunkPosition();
             entityMap.put(cPos, entityMap.getOrDefault(cPos, 0) + 1);
             activeChunks.add(cPos);

@@ -59,54 +59,6 @@ public class StaffEvents {
         }
     }
 
-    // Processa o chat local padrão, Mute, Freeze e SPY
-    @SubscribeEvent
-    public static void onServerChat(ServerChatEvent event) {
-        ServerPlayer player = event.getPlayer();
-        UUID uuid = player.getUUID();
-
-        // 1. Checagem de Mute
-        if (FXStaffData.isMuted(uuid)) {
-            event.setCanceled(true);
-            long remaining = FXStaffData.getMuteRemainingTime(uuid);
-            String timeText = TimeUtil.formatTime(remaining);
-
-            player.sendSystemMessage(Component.literal("§c[FXCore] Você está mutado! Tempo restante: §f" + timeText));
-            return;
-        }
-
-        // 2. Checagem de Freeze
-        FXPlayerData data = PlayerDataManager.get(uuid);
-        if (data != null && data.isFrozen) {
-            event.setCanceled(true);
-            player.sendSystemMessage(Component.literal("§c[FXCore] Você está congelado e não pode enviar mensagens."));
-            return;
-        }
-
-        // 3. Intercepta o chat Vanilla para formatar como Chat Local [L] e acionar o SPY
-        event.setCanceled(true);
-
-        String rawMessage = event.getRawText();
-        Component localFormatted = Component.literal("§e[L] §f" + player.getName().getString() + "§7: §f" + rawMessage);
-        Component spyFormatted = Component.literal("§8[SPY-L] §7" + player.getName().getString() + ": §f" + rawMessage);
-
-        double radiusSqr = LOCAL_CHAT_RADIUS * LOCAL_CHAT_RADIUS;
-
-        for (ServerPlayer target : player.getServer().getPlayerList().getPlayers()) {
-            boolean isSameLevel = target.level() == player.level();
-            boolean isNearby = isSameLevel && target.distanceToSqr(player) <= radiusSqr;
-
-            if (isNearby) {
-                target.sendSystemMessage(localFormatted);
-            } else {
-                // Notifica a staff via SPY se estiver fora do alcance
-                FXPlayerData targetData = PlayerDataManager.get(target.getUUID());
-                if (targetData != null && targetData.spyEnabled) {
-                    target.sendSystemMessage(spyFormatted);
-                }
-            }
-        }
-    }
 
     // Trava a movimentação do jogador congelado
     @SubscribeEvent

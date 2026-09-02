@@ -21,8 +21,8 @@ import java.util.UUID;
 
 public class ChatCommand {
 
-    public static final Map<UUID, String> CANAL_ATUAL_JOGADOR = new HashMap<>();
-    public static final Map<UUID, UUID> ULTIMA_CONVERSA = new HashMap<>();
+    public static final Map<UUID, String> CANAL_ATUAL_JOGADOR = new java.util.concurrent.ConcurrentHashMap<>();
+    public static final Map<UUID, UUID> ULTIMA_CONVERSA = new java.util.concurrent.ConcurrentHashMap<>();
     public static final Set<UUID> SPY_ATIVOS = new HashSet<>();
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -233,13 +233,23 @@ public class ChatCommand {
             double raioQuadrado = canal.getRadius() * canal.getRadius();
             int ouvintesProximos = 0;
 
-            for (ServerPlayer proximo : player.serverLevel().players()) {
-                if (proximo.distanceToSqr(player) <= raioQuadrado) {
-                    if (proximo.hasPermissions(canal.getPermissionLevel())) {
-                        proximo.sendSystemMessage(componente);
-                        if (!proximo.getUUID().equals(player.getUUID())) {
+            for (ServerPlayer destinatario : player.getServer().getPlayerList().getPlayers()) {
+                boolean isSameLevel = destinatario.level() == player.level();
+                boolean isNearby = isSameLevel && destinatario.distanceToSqr(player) <= raioQuadrado;
+
+                if (isNearby) {
+                    if (destinatario.hasPermissions(canal.getPermissionLevel())) {
+                        destinatario.sendSystemMessage(componente);
+                        if (!destinatario.getUUID().equals(player.getUUID())) {
                             ouvintesProximos++;
                         }
+                    }
+                } else {
+                    // Notifica a staff via SPY se estiver fora do alcance
+                    bz.fxcore.core.database.FXPlayerData targetData = bz.fxcore.core.database.PlayerDataManager.get(destinatario.getUUID());
+                    if (targetData != null && targetData.spyEnabled) {
+                        Component spyMsg = Component.literal("§8[SPY-" + canal.getCommand().toUpperCase() + "] §7" + player.getScoreboardName() + ": §f" + mensagemColorida);
+                        destinatario.sendSystemMessage(spyMsg);
                     }
                 }
             }

@@ -166,9 +166,9 @@ public class SmartAFKFarm {
 
         boolean isPassenger = player.isPassenger();
         boolean isInWater = player.isInWater() || player.isInFluidType();
-        boolean cameraMoved = currentYaw != data.lastYaw || currentPitch != data.lastPitch;
+        boolean cameraMoved = Math.abs(currentYaw - data.lastYaw) > 0.5f || Math.abs(currentPitch - data.lastPitch) > 0.5f;
 
-        boolean wasManualMove = !currentPos.equals(data.lastPos) && !isPassenger && !isInWater && cameraMoved;
+        boolean wasManualMove = currentPos.distanceToSqr(data.lastPos) > 0.002 && !isPassenger && !isInWater && cameraMoved;
 
         data.lastPos = currentPos;
         data.lastYaw = currentYaw;

@@ -55,7 +55,7 @@ public class FXChunkBan {
         // 2. Remove todas as entidades com segurança
         List<Entity> entitiesToRemove = new ArrayList<>();
         for (Entity entity : level.getAllEntities()) {
-            if (entity.chunkPosition().equals(pos) && !(entity instanceof Player)) {
+            if (entity != null && !entity.isRemoved() && entity.chunkPosition().equals(pos) && !(entity instanceof Player)) {
                 entitiesToRemove.add(entity);
             }
         }
@@ -87,8 +87,8 @@ public class FXChunkBan {
 
                         blocksArray.add(bObj);
 
-                        // Usa a flag 3 para notificar a mudança no mundo e rede
-                        level.setBlock(bPos, Blocks.AIR.defaultBlockState(), 3);
+                        // Usa a flag 2 para evitar atualizações pesadas de blocos vizinhos no loop massivo
+                        level.setBlock(bPos, Blocks.AIR.defaultBlockState(), 2);
                     }
                 }
             }
@@ -139,7 +139,7 @@ public class FXChunkBan {
                 var block = BuiltInRegistries.BLOCK.get(ResourceLocation.parse(blockId));
 
                 if (block != null) {
-                    level.setBlock(bPos, block.defaultBlockState(), 3);
+                    level.setBlock(bPos, block.defaultBlockState(), 2);
                     restoredBlocks++;
                 }
             }

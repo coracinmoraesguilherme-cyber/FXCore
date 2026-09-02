@@ -8,11 +8,12 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerDataManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File DATA_DIR = new File("config/fxcore/data/players");
-    private static final Map<UUID, FXPlayerData> CACHE = new HashMap<>();
+    private static final Map<UUID, FXPlayerData> CACHE = new ConcurrentHashMap<>();
 
     public static void init() {
         if (!DATA_DIR.exists()) {
@@ -69,22 +70,76 @@ public class PlayerDataManager {
 
     // Regras de Punições (Ban / Mute / Unban / BanList)
 
-    public static void banPlayer(UUID targetUuid, String author, String reason, String duration) {
+    public static void banPlayer(UUID targetUuid, String author, String reason, String duration, long expireTimestamp) {
         FXPlayerData data = get(targetUuid);
         data.isBanned = true;
         data.banReason = reason;
         data.banAuthor = author;
+        data.banExpireTimestamp = expireTimestamp;
         data.history.add(new FXPlayerData.HistoryEntry("BAN", reason, author, duration));
         save(data);
     }
 
-    public static void mutePlayer(UUID targetUuid, String author, String reason, String duration) {
+    public static void mutePlayer(UUID targetUuid, String author, String reason, String duration, long expireTimestamp) {
         FXPlayerData data = get(targetUuid);
+        data.isMuted = true;
+        data.muteReason = reason;
+        data.muteAuthor = author;
+        data.muteExpireTimestamp = expireTimestamp;
         data.history.add(new FXPlayerData.HistoryEntry("MUTE", reason, author, duration));
         save(data);
     }
 
+    public static boolean unmutePlayer(UUID targetUuid) {
+        FXPlayerData data = get(targetUuid);
+        if (data.isMuted) {
+            data.isMuted = false;
+            data.muteReason = "";
+            data.muteAuthor = "";
+            data.muteExpireTimestamp = 0L;
+            save(data);
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isPlayerMuted(UUID targetUuid) {
+        FXPlayerData data = get(targetUuid);
+        if (!data.isMuted) return false;
+        if (data.muteExpireTimestamp > 0L && System.currentTimeMillis() > data.muteExpireTimestamp) {
+            data.isMuted = false;
+            data.muteReason = "";
+            data.muteAuthor = "";
+            data.muteExpireTimestamp = 0L;
+            save(data);
+            return false;
+        }
+        return true;
+    }
+
+    public static long getMuteRemainingMillis(UUID targetUuid) {
+        FXPlayerData data = get(targetUuid);
+        if (!isPlayerMuted(targetUuid)) return 0L;
+        if (data.muteExpireTimestamp <= 0L || data.muteExpireTimestamp == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        return Math.max(0L, data.muteExpireTimestamp - System.currentTimeMillis());
+    }
+
     public static boolean unbanPlayer(String playerName) {
+        for (FXPlayerData cached : CACHE.values()) {
+            if (cached.lastName != null && cached.lastName.equalsIgnoreCase(playerName)) {
+                if (cached.isBanned) {
+                    cached.isBanned = false;
+                    cached.banReason = "";
+                    cached.banAuthor = "";
+                    cached.banExpireTimestamp = 0L;
+                    save(cached);
+                    return true;
+                }
+            }
+        }
+
         File[] files = DATA_DIR.listFiles((dir, name) -> name.endsWith(".json"));
         if (files != null) {
             for (File file : files) {
@@ -93,7 +148,11 @@ public class PlayerDataManager {
                     if (data != null && data.lastName != null && data.lastName.equalsIgnoreCase(playerName)) {
                         if (data.isBanned) {
                             data.isBanned = false;
+                            data.banReason = "";
+                            data.banAuthor = "";
+                            data.banExpireTimestamp = 0L;
                             save(data);
+                            CACHE.put(data.uuid, data);
                             return true;
                         }
                     }

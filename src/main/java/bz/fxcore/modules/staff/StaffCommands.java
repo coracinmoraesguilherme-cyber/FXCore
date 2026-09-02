@@ -56,6 +56,11 @@ public class StaffCommands {
                         .then(Commands.argument("tempo", StringArgumentType.word())
                             .executes(ctx -> executeMute(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), StringArgumentType.getString(ctx, "motivo"), StringArgumentType.getString(ctx, "tempo")))))))
 
+            // /fxs unmute <player>
+            .then(Commands.literal("unmute")
+                .then(Commands.argument("player", EntityArgument.player())
+                    .executes(ctx -> executeUnmute(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))))
+
             // /fxs alt <player>
             .then(Commands.literal("alt")
                 .then(Commands.argument("player", EntityArgument.player())
@@ -207,41 +212,54 @@ public class StaffCommands {
 
     // /fxs banlist
     private static int executeBanList(CommandSourceStack source) {
-        List<String> bannedPlayers = PlayerDataManager.getBannedList();
-        
-        source.sendSuccess(() -> Component.literal("§c[FXCore] Lista de Banimentos Ativos:"), false);
-        if (bannedPlayers.isEmpty()) {
-            source.sendSuccess(() -> Component.literal(" §7Nenhum jogador banido no momento."), false);
-        } else {
-            for (String banInfo : bannedPlayers) {
-                source.sendSuccess(() -> Component.literal(" §8- §f" + banInfo), false);
-            }
-        }
+        source.sendSuccess(() -> Component.literal("§e[FXCore] §7Carregando lista de banimentos..."), false);
+        bz.fxcore.core.otimi.server.FXTaskExecutor.runAsync(() -> {
+            List<String> bannedPlayers = PlayerDataManager.getBannedList();
+            source.getServer().execute(() -> {
+                source.sendSuccess(() -> Component.literal("§c[FXCore] Lista de Banimentos Ativos:"), false);
+                if (bannedPlayers.isEmpty()) {
+                    source.sendSuccess(() -> Component.literal(" §7Nenhum jogador banido no momento."), false);
+                } else {
+                    for (String banInfo : bannedPlayers) {
+                        source.sendSuccess(() -> Component.literal(" §8- §f" + banInfo), false);
+                    }
+                }
+            });
+        });
         return 1;
     }
 
     private static int executeUnban(CommandSourceStack source, String playerName) {
-        boolean success = PlayerDataManager.unbanPlayer(playerName);
-        if (success) {
-            source.sendSuccess(() -> Component.literal("§a[FXCore] Jogador §f" + playerName + " §adesbanido com sucesso."), false);
-        } else {
-            source.sendFailure(Component.literal("§c[FXCore] Jogador não encontrado na lista de banidos."));
-        }
+        source.sendSuccess(() -> Component.literal("§e[FXCore] §7Processando desbanimento de §f" + playerName + "§7..."), false);
+        bz.fxcore.core.otimi.server.FXTaskExecutor.runAsync(() -> {
+            boolean success = PlayerDataManager.unbanPlayer(playerName);
+            source.getServer().execute(() -> {
+                if (success) {
+                    source.sendSuccess(() -> Component.literal("§a[FXCore] Jogador §f" + playerName + " §adesbanido com sucesso."), false);
+                } else {
+                    source.sendFailure(Component.literal("§c[FXCore] Jogador não encontrado na lista de banidos."));
+                }
+            });
+        });
         return 1;
     }
 
     private static int executeAlt(CommandSourceStack source, ServerPlayer target) {
         String playerIp = target.getIpAddress();
-        List<String> alts = PlayerDataManager.findAlts(playerIp);
-
-        source.sendSuccess(() -> Component.literal("§e[FXCore] §7Contas associadas ao IP §f" + playerIp + "§7:"), false);
-        if (alts.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("§7Nenhuma outra conta encontrada."), false);
-        } else {
-            for (String altName : alts) {
-                source.sendSuccess(() -> Component.literal("§8- §f" + altName), false);
-            }
-        }
+        source.sendSuccess(() -> Component.literal("§e[FXCore] §7Buscando contas vinculadas ao IP de §f" + target.getName().getString() + "§7..."), false);
+        bz.fxcore.core.otimi.server.FXTaskExecutor.runAsync(() -> {
+            List<String> alts = PlayerDataManager.findAlts(playerIp);
+            source.getServer().execute(() -> {
+                source.sendSuccess(() -> Component.literal("§e[FXCore] §7Contas associadas ao IP §f" + playerIp + "§7:"), false);
+                if (alts.isEmpty()) {
+                    source.sendSuccess(() -> Component.literal(" §7Nenhuma outra conta encontrada."), false);
+                } else {
+                    for (String altName : alts) {
+                        source.sendSuccess(() -> Component.literal(" §8- §f" + altName), false);
+                    }
+                }
+            });
+        });
         return 1;
     }
 
@@ -263,8 +281,10 @@ public class StaffCommands {
     }
 
     private static int executeBan(CommandSourceStack source, Collection<ServerPlayer> players, String reason, String duration) {
+        long durationMillis = TimeUtil.parseTime(duration);
+        long expireTimestamp = durationMillis <= 0 ? 0L : System.currentTimeMillis() + durationMillis;
         for (ServerPlayer player : players) {
-            PlayerDataManager.banPlayer(player.getUUID(), source.getTextName(), reason, duration);
+            PlayerDataManager.banPlayer(player.getUUID(), source.getTextName(), reason, duration, expireTimestamp);
             player.connection.disconnect(Component.literal("§c[FXCore] Você foi banido!\n§7Motivo: " + reason + "\n§7Duração: " + duration));
         }
         source.sendSuccess(() -> Component.literal("§a[FXCore] Punição de banimento aplicada."), false);
@@ -272,16 +292,26 @@ public class StaffCommands {
     }
 
     private static int executeMute(CommandSourceStack source, ServerPlayer target, String reason, String duration) {
-    long timeMillis = TimeUtil.parseTime(duration);
-    
-    FXStaffData.mute(target.getUUID(), timeMillis);
-    PlayerDataManager.mutePlayer(target.getUUID(), source.getTextName(), reason, duration);
+        long timeMillis = TimeUtil.parseTime(duration);
+        long expireTimestamp = timeMillis <= 0 ? 0L : System.currentTimeMillis() + timeMillis;
 
-    String durationFormatted = timeMillis <= 0 ? "Permanente" : TimeUtil.formatTime(timeMillis);
-    
-    target.sendSystemMessage(Component.literal("§c[FXCore] Você foi mutado por §f" + durationFormatted + "§c. Motivo: §f" + reason));
-    source.sendSuccess(() -> Component.literal("§a[FXCore] Jogador §f" + target.getName().getString() + " §afoi mutado por §f" + durationFormatted + "§a."), false);
-    
-    return 1;
+        PlayerDataManager.mutePlayer(target.getUUID(), source.getTextName(), reason, duration, expireTimestamp);
+
+        String durationFormatted = timeMillis <= 0 ? "Permanente" : TimeUtil.formatTime(timeMillis);
+        target.sendSystemMessage(Component.literal("§c[FXCore] Você foi mutado por §f" + durationFormatted + "§c. Motivo: §f" + reason));
+        source.sendSuccess(() -> Component.literal("§a[FXCore] Jogador §f" + target.getName().getString() + " §afoi mutado por §f" + durationFormatted + "§a."), false);
+
+        return 1;
+    }
+
+    private static int executeUnmute(CommandSourceStack source, ServerPlayer target) {
+        boolean unmuted = PlayerDataManager.unmutePlayer(target.getUUID());
+        if (unmuted) {
+            target.sendSystemMessage(Component.literal("§a[FXCore] Você foi desmutado por um administrador."));
+            source.sendSuccess(() -> Component.literal("§a[FXCore] Jogador §f" + target.getName().getString() + " §afoi desmutado com sucesso."), false);
+        } else {
+            source.sendFailure(Component.literal("§c[FXCore] Este jogador não está mutado."));
+        }
+        return 1;
     }
 }

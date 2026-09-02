@@ -8,11 +8,21 @@ public class FXServerManager {
 
     private static double mobCapMultiplier = 1.0;
     private static int tickCounter = 0;
+    private static int cleanTickCounter = 0;
     private static boolean activeOptimization = false; // Guarda o estado atual da otimização
 
     // Método que monitora e ajusta as configurações automaticamente a cada segundo
     public static void onServerTick(MinecraftServer server) {
-        if (server == null || !FXServerConfig.DATA.autoOptimizationEnabled) return;
+        if (server == null) return;
+
+        // Limpeza periódica de drops expirados na memória do Giveback (a cada 60s)
+        cleanTickCounter++;
+        if (cleanTickCounter >= 1200) {
+            cleanTickCounter = 0;
+            bz.fxcore.modules.giveback.GiveBManager.cleanAllExpiredDrops();
+        }
+
+        if (!FXServerConfig.DATA.autoOptimizationEnabled) return;
 
         // Roda a verificação a cada 20 ticks (1 segundo)
         tickCounter++;
@@ -82,10 +92,14 @@ public class FXServerManager {
 
     public static int getTotalLoadedEntities(MinecraftServer server) {
         int entities = 0;
+        if (server == null) return 0;
         for (ServerLevel level : server.getAllLevels()) {
+            if (level == null) continue;
             int count = 0;
-            for (Object ignored : level.getAllEntities()) {
-                count++;
+            for (Object obj : level.getAllEntities()) {
+                if (obj != null) {
+                    count++;
+                }
             }
             entities += count;
         }

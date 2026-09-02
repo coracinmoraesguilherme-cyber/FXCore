@@ -30,8 +30,9 @@ public class FXChunkAnalyzer {
         int totalEntities = 0;
 
         for (Entity entity : level.getAllEntities()) {
+            if (entity == null || entity.isRemoved()) continue;
             if (entity.chunkPosition().equals(pos)) {
-                String name = entity.getType().getDescription().getString();
+                String name = entity.getType() != null ? entity.getType().getDescription().getString() : "desconhecido";
                 entityCounts.put(name, entityCounts.getOrDefault(name, 0) + 1);
                 totalEntities++;
             }

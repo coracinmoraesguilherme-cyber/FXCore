@@ -13,19 +13,12 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 import java.util.List;
 
 public class GiveBCommand {
 
     private static final int ITEMS_PER_PAGE = 45; // 5 linhas para itens, 1 linha para botões
-
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterCommandsEvent event) {
-        register(event.getDispatcher());
-    }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("fxgiveback")

@@ -19,6 +19,12 @@ public class FXPlayerData {
     public boolean isBanned = false;
     public String banReason = "";
     public String banAuthor = "";
+    public long banExpireTimestamp = 0L; // 0L = permanente
+
+    public boolean isMuted = false;
+    public String muteReason = "";
+    public String muteAuthor = "";
+    public long muteExpireTimestamp = 0L; // 0L = permanente
 
     // Listas internas
     public List<NoteEntry> notes = new ArrayList<>();
