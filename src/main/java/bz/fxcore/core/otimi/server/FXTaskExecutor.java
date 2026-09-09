@@ -4,6 +4,7 @@ import bz.fxcore.FXCore;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FXTaskExecutor {
@@ -27,13 +28,20 @@ public class FXTaskExecutor {
      * Ideal para: leitura/escrita de arquivos de jogadores, banco de dados, webhooks, etc.
      */
     public static void runAsync(Runnable task) {
-        ASYNC_EXECUTOR.execute(() -> {
-            try {
-                task.run();
-            } catch (Exception e) {
-                FXCore.LOGGER.error("Erro ao executar tarefa assíncrona no FXCore:", e);
-            }
-        });
+        if (ASYNC_EXECUTOR.isShutdown() || ASYNC_EXECUTOR.isTerminated()) {
+            return; // Ignora se o executor já estiver fechado
+        }
+        try {
+            ASYNC_EXECUTOR.execute(() -> {
+                try {
+                    task.run();
+                } catch (Exception e) {
+                    FXCore.LOGGER.error("Erro ao executar tarefa assíncrona no FXCore:", e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            // Captura caso o pool feche exatamente durante a submissão
+        }
     }
 
     /**

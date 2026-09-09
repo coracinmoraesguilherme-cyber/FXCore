@@ -2,6 +2,8 @@ package bz.fxcore.modules.build;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
@@ -20,8 +22,11 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -29,6 +34,8 @@ import java.util.UUID;
 public class FXBuildManager {
 
     private static final Set<UUID> BUILD_MODE_PLAYERS = new HashSet<>();
+    private static final Map<UUID, Long> CUSTOM_TIMES = new HashMap<>();
+    private static final Map<UUID, Boolean> CUSTOM_WEATHERS = new HashMap<>(); // true = limpo, false = chuva
 
     public static boolean isBuildMode(ServerPlayer player) {
         return BUILD_MODE_PLAYERS.contains(player.getUUID());
@@ -41,14 +48,58 @@ public class FXBuildManager {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(FXBuildConfig.DATA.buildEnableMsg));
         } else {
             BUILD_MODE_PLAYERS.remove(uuid);
+            CUSTOM_TIMES.remove(uuid);
+            CUSTOM_WEATHERS.remove(uuid);
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(FXBuildConfig.DATA.buildDisableMsg));
+        }
+    }
+
+    public static void setCustomTime(ServerPlayer player, Long time) {
+        if (time == null) {
+            CUSTOM_TIMES.remove(player.getUUID());
+        } else {
+            CUSTOM_TIMES.put(player.getUUID(), time);
+        }
+    }
+
+    public static void setCustomWeather(ServerPlayer player, Boolean clearWeather) {
+        if (clearWeather == null) {
+            CUSTOM_WEATHERS.remove(player.getUUID());
+        } else {
+            CUSTOM_WEATHERS.put(player.getUUID(), clearWeather);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            BUILD_MODE_PLAYERS.remove(player.getUUID());
+            UUID uuid = player.getUUID();
+            BUILD_MODE_PLAYERS.remove(uuid);
+            CUSTOM_TIMES.remove(uuid);
+            CUSTOM_WEATHERS.remove(uuid);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            UUID uuid = player.getUUID();
+
+            // Mantém o ptime travado
+            if (CUSTOM_TIMES.containsKey(uuid)) {
+                long targetTime = CUSTOM_TIMES.get(uuid);
+                player.connection.send(new ClientboundSetTimePacket(player.level().getGameTime(), targetTime, false));
+            }
+
+            // Mantém o pweather travado
+            if (CUSTOM_WEATHERS.containsKey(uuid)) {
+                boolean clear = CUSTOM_WEATHERS.get(uuid);
+                if (clear) {
+                    player.connection.send(new ClientboundGameEventPacket(ClientboundGameEventPacket.STOP_RAINING, 0.0F));
+                } else {
+                    player.connection.send(new ClientboundGameEventPacket(ClientboundGameEventPacket.START_RAINING, 0.0F));
+                }
+            }
         }
     }
 
@@ -67,10 +118,8 @@ public class FXBuildManager {
                 Direction clickedFace = event.getFace();
                 
                 BlockPos targetPos = event.getPos().relative(clickedFace);
-
                 BlockState stateToPlace = getCustomDirectionState(heldItem, clickedFace, player);
 
-                // Flag 82: Coloca o bloco de forma estática sem física ou updates nos vizinhos
                 boolean placed = level.setBlock(targetPos, stateToPlace, 82);
 
                 if (placed) {

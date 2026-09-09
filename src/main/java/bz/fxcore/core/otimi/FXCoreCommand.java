@@ -1,5 +1,8 @@
 package bz.fxcore.core.otimi;
 
+import bz.fxcore.modules.build.particles.ParticleShapeJson;
+import bz.fxcore.modules.chat.ChannelManager;
+import bz.fxcore.modules.giveback.GiveBConfig;
 import bz.fxcore.modules.clear.FXClearConfig;
 import bz.fxcore.modules.build.FXBuildConfig;
 import bz.fxcore.core.database.PlayerDataManager;
@@ -152,7 +155,9 @@ public class FXCoreCommand {
                         FXServerConfig.carregar();
                         FXBuildConfig.load();
                         FXClearConfig.load();
-
+                        ParticleShapeJson.loadShapes(net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get());
+                        ChannelManager.load();
+                        GiveBConfig.load();
                         // 2. Persiste os dados dos jogadores online que estão em cache
                         for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
                             PlayerDataManager.save(PlayerDataManager.get(player.getUUID()));
@@ -211,55 +216,79 @@ public class FXCoreCommand {
 
             // /fxcore chunkban
             .then(Commands.literal("chunkban")
-                // delete <chunkpos>
+                // delete <chunkX> <chunkZ>
                 .then(Commands.literal("delete")
-                    .then(Commands.argument("chunkpos", Vec2Argument.vec2(true))
-                        .executes(context -> {
-                            Vec2 pos = Vec2Argument.getVec2(context, "chunkpos");
-                            ChunkPos cPos = new ChunkPos((int) pos.x, (int) pos.y);
-                            ServerLevel level = context.getSource().getLevel();
+                    .then(Commands.argument("chunkX", IntegerArgumentType.integer())
+                        .then(Commands.argument("chunkZ", IntegerArgumentType.integer())
+                            .executes(context -> {
+                                int x = IntegerArgumentType.getInteger(context, "chunkX");
+                                int z = IntegerArgumentType.getInteger(context, "chunkZ");
+                                ChunkPos cPos = new ChunkPos(x, z);
+                                ServerLevel level = context.getSource().getLevel();
 
-                            FXChunkBan.deleteChunk(level, cPos, msg -> 
-                                context.getSource().sendSuccess(() -> Component.literal(msg), true)
-                            );
-                            return 1;
-                        })
+                                FXChunkBan.deleteChunk(level, cPos, msg -> 
+                                    context.getSource().sendSuccess(() -> Component.literal(msg), true)
+                                );
+                                return 1;
+                            })
+                        )
                     )
                 )
-                // rollback <chunkpos>
+                // rollback <chunkX> <chunkZ>
                 .then(Commands.literal("rollback")
-                    .then(Commands.argument("chunkpos", Vec2Argument.vec2(true))
-                        .executes(context -> {
-                            Vec2 pos = Vec2Argument.getVec2(context, "chunkpos");
-                            ChunkPos cPos = new ChunkPos((int) pos.x, (int) pos.y);
-                            ServerLevel level = context.getSource().getLevel();
+                    .then(Commands.argument("chunkX", IntegerArgumentType.integer())
+                        .then(Commands.argument("chunkZ", IntegerArgumentType.integer())
+                            .executes(context -> {
+                                int x = IntegerArgumentType.getInteger(context, "chunkX");
+                                int z = IntegerArgumentType.getInteger(context, "chunkZ");
+                                ChunkPos cPos = new ChunkPos(x, z);
+                                ServerLevel level = context.getSource().getLevel();
 
-                            FXChunkBan.restoreChunk(level, cPos, msg -> 
-                                context.getSource().sendSuccess(() -> Component.literal(msg), true)
-                            );
-                            return 1;
-                        })
+                                FXChunkBan.restoreChunk(level, cPos, msg -> 
+                                    context.getSource().sendSuccess(() -> Component.literal(msg), true)
+                                );
+                                return 1;
+                            })
+                        )
                     )
                 )
-            )
-            // /fxcore chunkban spawn_test
-            .then(Commands.literal("spawn_test")
-                .executes(context -> {
-                    if (context.getSource().getEntity() instanceof Player player) {
-                        ServerLevel level = (ServerLevel) player.level();
-                        ChunkPos cPos = player.chunkPosition();
+                // regen <chunkX> <chunkZ>
+                .then(Commands.literal("regen")
+                    .then(Commands.argument("chunkX", IntegerArgumentType.integer())
+                        .then(Commands.argument("chunkZ", IntegerArgumentType.integer())
+                            .executes(context -> {
+                                int x = IntegerArgumentType.getInteger(context, "chunkX");
+                                int z = IntegerArgumentType.getInteger(context, "chunkZ");
+                                ChunkPos cPos = new ChunkPos(x, z);
+                                ServerLevel level = context.getSource().getLevel();
 
-                        FXTestChunkBan.spawnTestChunkBan(level, cPos, msg -> 
-                            context.getSource().sendSuccess(() -> Component.literal(msg), true)
-                        );
-                    } else {
-                        context.getSource().sendFailure(Component.literal("Este comando só pode ser executado por jogadores!"));
-                    }
-                    return 1;
-                })
+                                FXChunkBan.regenerateChunk(level, cPos, msg -> 
+                                    context.getSource().sendSuccess(() -> Component.literal(msg), true)
+                                );
+                                return 1;
+                            })
+                        )
+                    )
+                )
+                // spawn_test
+                .then(Commands.literal("spawn_test")
+                    .executes(context -> {
+                        if (context.getSource().getEntity() instanceof Player player) {
+                            ServerLevel level = (ServerLevel) player.level();
+                            ChunkPos cPos = player.chunkPosition();
+
+                            FXTestChunkBan.spawnTestChunkBan(level, cPos, msg -> 
+                                context.getSource().sendSuccess(() -> Component.literal(msg), true)
+                            );
+                        } else {
+                            context.getSource().sendFailure(Component.literal("Este comando só pode ser executado por jogadores!"));
+                        }
+                        return 1;
+                    })
+                )
             )
 
-            // /fxcore chunkpos
+            // /fxcore chunkpos [x] [z]
             .then(Commands.literal("chunkpos")
                 .executes(context -> {
                     if (context.getSource().getEntity() instanceof ServerPlayer player) {
@@ -270,10 +299,27 @@ public class FXCoreCommand {
                             " §7(Bloco X: " + bPos.getX() + " Y: " + bPos.getY() + " Z: " + bPos.getZ() + ")"
                         ), false);
                     } else {
-                        context.getSource().sendFailure(Component.literal("§cApenas jogadores podem executar este comando sem argumentos!"));
+                        context.getSource().sendFailure(Component.literal("§c[FXCore] O console deve especificar as coordenadas: /fxcore chunkpos <x> <z>"));
                     }
                     return 1;
                 })
+                .then(Commands.argument("x", IntegerArgumentType.integer())
+                    .then(Commands.argument("z", IntegerArgumentType.integer())
+                        .executes(context -> {
+                            int x = IntegerArgumentType.getInteger(context, "x");
+                            int z = IntegerArgumentType.getInteger(context, "z");
+                            
+                            // Converte as coordenadas do bloco para a ChunkPos correspondente
+                            ChunkPos cPos = new ChunkPos(new BlockPos(x, 0, z));
+                            
+                            context.getSource().sendSuccess(() -> Component.literal(
+                                "§a[FXCore] §fCoordenadas §eX: " + x + " | Z: " + z + 
+                                " §fpertencem à Chunk: §eX: " + cPos.x + " | Z: " + cPos.z
+                            ), false);
+                            return 1;
+                        })
+                    )
+                )
             )
 
             // /fxcore server juststaff <on/off>

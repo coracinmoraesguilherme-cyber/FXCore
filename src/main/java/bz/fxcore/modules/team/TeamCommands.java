@@ -1,5 +1,6 @@
 package bz.fxcore.modules.team;
 
+import bz.fxcore.core.database.PlayerDataManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -9,6 +10,7 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
@@ -48,6 +50,8 @@ public class TeamCommands {
                         .executes(ctx -> {
                             ServerPlayer sourcePlayer = ctx.getSource().getPlayerOrException();
                             ServerPlayer targetPlayer = EntityArgument.getPlayer(ctx, "player");
+                            String targetName = targetPlayer.getName().getString();
+                            UUID targetUuid = targetPlayer.getUUID();
 
                             TeamData team = TeamManager.getPlayerTeam(sourcePlayer.getUUID());
                             if (team == null || !team.owner.equals(sourcePlayer.getUUID())) {
@@ -55,13 +59,18 @@ public class TeamCommands {
                                 return 0;
                             }
 
-                            if (TeamManager.hasTeam(targetPlayer.getUUID())) {
+                            if (targetUuid.equals(sourcePlayer.getUUID())) {
+                                ctx.getSource().sendFailure(Component.literal("§c[FXCore] Você não pode convidar a si mesmo!"));
+                                return 0;
+                            }
+
+                            if (TeamManager.hasTeam(targetUuid)) {
                                 ctx.getSource().sendFailure(Component.literal("§c[FXCore] Este jogador já faz parte de um time!"));
                                 return 0;
                             }
 
-                            TeamManager.invitePlayer(targetPlayer.getUUID(), team.id);
-                            ctx.getSource().sendSuccess(() -> Component.literal("§a[FXCore] Convite enviado para " + targetPlayer.getName().getString()), false);
+                            TeamManager.invitePlayer(targetUuid, team.id);
+                            ctx.getSource().sendSuccess(() -> Component.literal("§a[FXCore] Convite enviado para " + targetName), false);
 
                             Component inviteMsg = Component.literal("§e[FXCore] Você foi convidado para o time §f" + team.name + "§e! ")
                                 .append(Component.literal("§a§l[CLIQUE AQUI PARA ACEITAR]")
@@ -96,6 +105,38 @@ public class TeamCommands {
                             ctx.getSource().sendSuccess(() -> Component.literal("§a[FXCore] Você entrou para o time " + team.name + "!"), false);
                         }
                         return 1;
+                    }))
+
+                // leave (Sair do time atual)
+                .then(Commands.literal("leave")
+                    .executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        TeamData team = TeamManager.getPlayerTeam(player.getUUID());
+
+                        if (team == null) {
+                            ctx.getSource().sendFailure(Component.literal("§c[FXCore] Você não está em nenhum time."));
+                            return 0;
+                        }
+
+                        if (team.owner.equals(player.getUUID())) {
+                            ctx.getSource().sendFailure(Component.literal("§c[FXCore] O dono não pode sair do time. Use /fxteam delete para apagar o time ou repasse a liderança."));
+                            return 0;
+                        }
+
+                        if (team.members.remove(player.getUUID())) {
+                            TeamManager.save();
+                            ctx.getSource().sendSuccess(() -> Component.literal("§a[FXCore] Você saiu do time " + team.name + "."), false);
+                            
+                            // Avisar o dono caso ele esteja online
+                            ServerPlayer ownerPlayer = ctx.getSource().getServer().getPlayerList().getPlayer(team.owner);
+                            if (ownerPlayer != null) {
+                                ownerPlayer.sendSystemMessage(Component.literal("§e[FXCore] O jogador §f" + player.getName().getString() + " §esaiu do seu time."));
+                            }
+                            return 1;
+                        }
+
+                        ctx.getSource().sendFailure(Component.literal("§c[FXCore] Ocorreu um erro ao tentar sair do time."));
+                        return 0;
                     }))
 
                 // delete (Somente o dono)
@@ -165,10 +206,10 @@ public class TeamCommands {
 
                 // remove <player> ["motivo"]
                 .then(Commands.literal("remove")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .executes(ctx -> executeRemove(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), "Sem motivo especificado"))
+                    .then(Commands.argument("player", StringArgumentType.word())
+                        .executes(ctx -> executeRemove(ctx.getSource(), StringArgumentType.getString(ctx, "player"), "Sem motivo especificado"))
                         .then(Commands.argument("motivo", StringArgumentType.greedyString())
-                            .executes(ctx -> executeRemove(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), StringArgumentType.getString(ctx, "motivo"))))))
+                            .executes(ctx -> executeRemove(ctx.getSource(), StringArgumentType.getString(ctx, "player"), StringArgumentType.getString(ctx, "motivo"))))))
 
                 // info
                 .then(Commands.literal("info")
@@ -218,7 +259,7 @@ public class TeamCommands {
         }
     }
 
-    private static int executeRemove(CommandSourceStack source, ServerPlayer target, String reason) {
+    private static int executeRemove(CommandSourceStack source, String targetName, String reason) {
         try {
             ServerPlayer player = source.getPlayerOrException();
             TeamData team = TeamManager.getPlayerTeam(player.getUUID());
@@ -228,11 +269,28 @@ public class TeamCommands {
                 return 0;
             }
 
-            if (team.members.remove(target.getUUID())) {
-                team.offlineKicks.put(target.getUUID(), reason);
+            MinecraftServer server = source.getServer();
+            UUID targetUuid = PlayerDataManager.getUUIDByName(server, targetName);
+
+            if (targetUuid == null) {
+                source.sendFailure(Component.literal("§c[FXCore] O jogador '" + targetName + "' nunca entrou no servidor."));
+                return 0;
+            }
+
+            if (team.owner.equals(targetUuid)) {
+                source.sendFailure(Component.literal("§c[FXCore] Você não pode remover a si mesmo sendo o dono. Use /fxteam delete."));
+                return 0;
+            }
+
+            if (team.members.remove(targetUuid)) {
+                team.offlineKicks.put(targetUuid, reason);
                 TeamManager.save();
-                source.sendSuccess(() -> Component.literal("§a[FXCore] " + target.getName().getString() + " foi removido do time."), false);
-                target.sendSystemMessage(Component.literal("§c[FXCore] Você foi removido do time " + team.name + ". Motivo: §f" + reason));
+                source.sendSuccess(() -> Component.literal("§a[FXCore] " + targetName + " foi removido do time."), false);
+                
+                ServerPlayer targetPlayer = server.getPlayerList().getPlayerByName(targetName);
+                if (targetPlayer != null) {
+                    targetPlayer.sendSystemMessage(Component.literal("§c[FXCore] Você foi removido do time " + team.name + ". Motivo: §f" + reason));
+                }
                 return 1;
             } else {
                 source.sendFailure(Component.literal("§c[FXCore] O jogador não está no seu time."));
@@ -269,7 +327,8 @@ public class TeamCommands {
             }
         }
         
-        source.sendSuccess(() -> Component.literal("§7Membros (" + team.members.size() + "): " + membersList.toString()), false);
+        int totalMembers = team.members.size() + 1;
+        source.sendSuccess(() -> Component.literal("§7Membros (" + totalMembers + "): " + membersList.toString()), false);
     }
 
     public static String parseColor(String input) {

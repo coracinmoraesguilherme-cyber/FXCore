@@ -1,11 +1,13 @@
 package bz.fxcore.modules.giveback;
 
+import bz.fxcore.core.database.PlayerDataManager;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
@@ -15,6 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.List;
+import java.util.UUID;
 
 public class GiveBCommand {
 
@@ -26,27 +29,43 @@ public class GiveBCommand {
                 if (!(context.getSource().getEntity() instanceof ServerPlayer player)) {
                     return 0;
                 }
-                return openForPlayer(player, player, 0);
+                return openForPlayer(player, player.getUUID(), player.getScoreboardName(), 0);
             })
             .then(Commands.literal("view")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("target", EntityArgument.player())
+                .then(Commands.argument("target", StringArgumentType.word())
                     .executes(context -> {
                         ServerPlayer staff = context.getSource().getPlayerOrException();
-                        ServerPlayer target = EntityArgument.getPlayer(context, "target");
-                        return openForPlayer(staff, target, 0);
+                        String targetName = StringArgumentType.getString(context, "target");
+                        MinecraftServer server = context.getSource().getServer();
+                        
+                        UUID targetUuid = PlayerDataManager.getUUIDByName(server, targetName);
+                        if (targetUuid == null) {
+                            staff.sendSystemMessage(Component.literal("§c[FXCore] O jogador '" + targetName + "' nunca entrou no servidor."));
+                            return 0;
+                        }
+
+                        return openForPlayer(staff, targetUuid, targetName, 0);
                     })
                 )
             )
             .then(Commands.literal("clear")
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.argument("target", EntityArgument.player())
+                .then(Commands.argument("target", StringArgumentType.word())
                     .executes(context -> {
-                        ServerPlayer target = EntityArgument.getPlayer(context, "target");
-                        GiveBManager.RECOVERABLE_DROPS.remove(target.getUUID());
+                        String targetName = StringArgumentType.getString(context, "target");
+                        MinecraftServer server = context.getSource().getServer();
+                        
+                        UUID targetUuid = PlayerDataManager.getUUIDByName(server, targetName);
+                        if (targetUuid == null) {
+                            context.getSource().sendFailure(Component.literal("§c[FXCore] O jogador '" + targetName + "' nunca entrou no servidor."));
+                            return 0;
+                        }
+
+                        GiveBManager.RECOVERABLE_DROPS.remove(targetUuid);
                         
                         String clearMsg = GiveBConfig.DATA.staffClearSuccessMessage
-                            .replace("%player%", target.getScoreboardName());
+                            .replace("%player%", targetName);
                             
                         context.getSource().sendSuccess(() -> GiveBManager.parseColor(clearMsg), true);
                         return 1;
@@ -56,24 +75,25 @@ public class GiveBCommand {
         );
     }
 
-    private static int openForPlayer(ServerPlayer viewer, ServerPlayer owner, int page) {
-        GiveBManager.cleanExpiredDrops(owner.getUUID());
-        List<GiveBManager.StoredDrop> drops = GiveBManager.RECOVERABLE_DROPS.get(owner.getUUID());
+    private static int openForPlayer(ServerPlayer viewer, UUID ownerUuid, String ownerName, int page) {
+        GiveBManager.cleanExpiredDrops(ownerUuid);
+        List<GiveBManager.StoredDrop> drops = GiveBManager.RECOVERABLE_DROPS.get(ownerUuid);
 
         if (drops == null || drops.isEmpty()) {
-            String msg = viewer.getUUID().equals(owner.getUUID())
+            boolean isSelf = viewer.getUUID().equals(ownerUuid);
+            String msg = isSelf
                 ? GiveBConfig.DATA.emptyInventoryMessage
-                : GiveBConfig.DATA.staffNoItemsMessage.replace("%player%", owner.getScoreboardName());
+                : GiveBConfig.DATA.staffNoItemsMessage.replace("%player%", ownerName);
 
             viewer.sendSystemMessage(GiveBManager.parseColor(msg));
             return 1;
         }
 
-        openRecoveryMenu(viewer, owner, drops, page);
+        openRecoveryMenu(viewer, ownerUuid, ownerName, drops, page);
         return 1;
     }
 
-    private static void openRecoveryMenu(ServerPlayer viewer, ServerPlayer owner, List<GiveBManager.StoredDrop> drops, int page) {
+    private static void openRecoveryMenu(ServerPlayer viewer, UUID ownerUuid, String ownerName, List<GiveBManager.StoredDrop> drops, int page) {
         int maxPages = (int) Math.ceil((double) drops.size() / ITEMS_PER_PAGE);
         int currentPage = Math.max(0, Math.min(page, maxPages - 1));
 
@@ -109,9 +129,10 @@ public class GiveBCommand {
             container.setItem(53, next);
         }
 
-        String rawTitle = viewer.getUUID().equals(owner.getUUID()) 
+        boolean isSelf = viewer.getUUID().equals(ownerUuid);
+        String rawTitle = isSelf 
             ? GiveBConfig.DATA.playerGuiTitle 
-            : GiveBConfig.DATA.staffGuiTitle.replace("%player%", owner.getScoreboardName());
+            : GiveBConfig.DATA.staffGuiTitle.replace("%player%", ownerName);
 
         rawTitle = rawTitle.replace("%page%", String.valueOf(currentPage + 1))
                            .replace("%max%", String.valueOf(maxPages));
@@ -126,18 +147,23 @@ public class GiveBCommand {
                         
                         // Botão Página Anterior
                         if (slotId == 45 && currentPage > 0) {
-                            openRecoveryMenu((ServerPlayer) clickPlayer, owner, drops, currentPage - 1);
+                            openRecoveryMenu((ServerPlayer) clickPlayer, ownerUuid, ownerName, drops, currentPage - 1);
                             return;
                         }
                         
                         // Botão Próxima Página
                         if (slotId == 53 && currentPage < maxPages - 1) {
-                            openRecoveryMenu((ServerPlayer) clickPlayer, owner, drops, currentPage + 1);
+                            openRecoveryMenu((ServerPlayer) clickPlayer, ownerUuid, ownerName, drops, currentPage + 1);
                             return;
                         }
 
-                        // Clique em um item recuperável
+                        // Clique em um item recuperável (Apenas o próprio dono pode resgatar para o inventário)
                         if (slotId < ITEMS_PER_PAGE) {
+                            if (!viewer.getUUID().equals(ownerUuid)) {
+                                viewer.sendSystemMessage(Component.literal("§c[FXCore] Você está apenas visualizando o inventário deste jogador offline/online."));
+                                return;
+                            }
+
                             int realIndex = startIndex + slotId;
                             if (realIndex < drops.size()) {
                                 GiveBManager.StoredDrop drop = drops.get(realIndex);
@@ -161,7 +187,7 @@ public class GiveBCommand {
                                     drops.remove(realIndex);
                                 }
 
-                                openRecoveryMenu((ServerPlayer) clickPlayer, owner, drops, currentPage);
+                                openRecoveryMenu((ServerPlayer) clickPlayer, ownerUuid, ownerName, drops, currentPage);
                                 return;
                             }
                         }

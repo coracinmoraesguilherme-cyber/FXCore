@@ -23,4 +23,9 @@ public class GiveBConfig {
         // Alerta para quebras ambientais ou explosões
         public String staffWorldAlertMessage = "&c[AntiLag Staff] Um container em %pos% foi destruído por %reason% com %count% itens. Itens enviados para o /fxgiveback do dono/último criador.";
     }
+    public static void load() {
+        // Se houver leitura de arquivo JSON para o GiveBConfig, adicione aqui. 
+        // Caso contrário, apenas garanta que o método existe para o comando compilar:
+        DATA = new Data();
+    }
 }

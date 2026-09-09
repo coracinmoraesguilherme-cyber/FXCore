@@ -83,4 +83,7 @@ public class ChannelManager {
         }
         return false;
     }
+    public static void load() {
+        loadChannels();
+    }
 }

@@ -2,6 +2,9 @@ package bz.fxcore.core.database;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mojang.authlib.GameProfile;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.io.File;
 import java.io.FileReader;
@@ -66,6 +69,44 @@ public class PlayerDataManager {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Descobre o UUID de um jogador pelo nome (Online, arquivos locais ou cache do servidor).
+     */
+    public static UUID getUUIDByName(MinecraftServer server, String playerName) {
+        // 1. Verifica se está online no servidor atualmente
+        ServerPlayer onlinePlayer = server.getPlayerList().getPlayerByName(playerName);
+        if (onlinePlayer != null) {
+            return onlinePlayer.getUUID();
+        }
+
+        // 2. Procura nos arquivos JSON salvos na pasta usando o lastName
+        for (FXPlayerData cached : CACHE.values()) {
+            if (cached.lastName != null && cached.lastName.equalsIgnoreCase(playerName)) {
+                return cached.uuid;
+            }
+        }
+
+        File[] files = DATA_DIR.listFiles((dir, name) -> name.endsWith(".json"));
+        if (files != null) {
+            for (File file : files) {
+                try (FileReader reader = new FileReader(file)) {
+                    FXPlayerData data = GSON.fromJson(reader, FXPlayerData.class);
+                    if (data != null && data.lastName != null && data.lastName.equalsIgnoreCase(playerName)) {
+                        return data.uuid;
+                    }
+                } catch (IOException ignored) {}
+            }
+        }
+
+        // 3. Tenta buscar pelo cache de perfis oficial do servidor (Mojang/Cache)
+        Optional<GameProfile> profileOpt = server.getProfileCache().get(playerName);
+        if (profileOpt.isPresent()) {
+            return profileOpt.get().getId();
+        }
+
+        return null;
     }
 
     // Regras de Punições (Ban / Mute / Unban / BanList)

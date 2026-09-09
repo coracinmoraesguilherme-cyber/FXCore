@@ -1,7 +1,9 @@
 package bz.fxcore.core.commands;
 
- //core
- import bz.fxcore.core.otimi.FXCoreCommand;
+//core
+import bz.fxcore.core.otimi.FXCoreCommand;
+//simple command
+import bz.fxcore.core.util.SimpleCommand;
 //modulos
 //giveback
 import bz.fxcore.modules.giveback.GiveBCommand;
@@ -9,6 +11,9 @@ import bz.fxcore.modules.giveback.GiveBCommand;
 import bz.fxcore.modules.build.FXBuildCommand;
 //clear
 import bz.fxcore.modules.clear.FXClearCommand;
+//rp
+import bz.fxcore.modules.rp.RPCommand;
+import bz.fxcore.modules.rp.RPAdminCommand;
 
 import bz.fxcore.modules.chat.ChatCommand;
 import bz.fxcore.modules.staff.StaffCommands;
@@ -24,13 +29,18 @@ public class CommandRegistry {
         // Módulo Staff (/fxs)
         StaffCommands.register(dispatcher);
 
-        // Módulos futuros serão registrados aqui:
+        // Módulos do Core e Sistemas
         FXCoreCommand.register(dispatcher);    // /fxcore
         ChatCommand.register(dispatcher);    // /fxchat
         TeamCommands.register(dispatcher);    // /fxteams
-        TeamChatCommand.register(dispatcher); //fxchat
+        TeamChatCommand.register(dispatcher); // /fxchat (team)
         FXClearCommand.register(dispatcher);   // /fxclear
-        FXBuildCommand.register(dispatcher);   // /fxbuild
+        FXBuildCommand.register(dispatcher, context);   // /fxbuild
         GiveBCommand.register(dispatcher);// /fxgiveback
+        SimpleCommand.register(dispatcher); // simple commands
+        
+        // Módulo de Roleplay (RP)
+        RPCommand.register(dispatcher);
+        RPAdminCommand.register(dispatcher);
     }
 }

@@ -1,5 +1,6 @@
 package bz.fxcore;
 
+import bz.fxcore.modules.build.particles.ParticleShapeJson;
 import bz.fxcore.core.commands.CommandRegistry;
 import bz.fxcore.core.database.PlayerDataManager;
 import bz.fxcore.core.otimi.server.FXTaskExecutor;
@@ -30,10 +31,36 @@ public class FXCore {
         // Registra o evento de tick no barramento
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
+        ParticleShapeJson.loadShapes(net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get());
     }
 
     private void setup(final FMLCommonSetupEvent event) {
-        LOGGER.info("Inicializando FXCore V2...");
+        LOGGER.info("==============================================================");
+        LOGGER.info("");
+        LOGGER.info("  ________    __       _______   _______   ______    _______ ");
+        LOGGER.info(" |  ____\\ \\  / /      / ____| | |  __  | |  __  \\  |  ____|");
+        LOGGER.info(" | |__   \\ \\/ /      | |      | | |  | | | |__) | | |__    ");
+        LOGGER.info(" |  __|  /   \\       | |      | | |  | | |  _  /  |  __|   ");
+        LOGGER.info(" | |    / /\\  \\      | |____  | | |__| | | | \\ \\  | |____  ");
+        LOGGER.info(" |_|   /_/   \\_/      \\_____| |_|______/ |_|  \\_\\ |______| ");
+        LOGGER.info("");
+        LOGGER.info("                    FXCore Framework v2");
+        LOGGER.info("==============================================================");
+        LOGGER.info("");
+        LOGGER.info("[Modules]");
+        LOGGER.info(" + FXChat");
+        LOGGER.info(" + FXTeams");
+        LOGGER.info(" + FXClearItems");
+        LOGGER.info(" + FXStaff");
+        LOGGER.info(" + FXServer");
+        LOGGER.info(" + FXGiveBack");
+        LOGGER.info(" + FXBuild");
+        LOGGER.info(" + FXServerTools");
+        LOGGER.info(" + FXAFK");
+        LOGGER.info("");
+        LOGGER.info("[Status] Initializing...");
+        LOGGER.info("==============================================================");
+        
         PlayerDataManager.init();
         TeamManager.init();
     }
