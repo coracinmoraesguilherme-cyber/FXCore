@@ -20,8 +20,41 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxbuild/FXBuildEvents.java
 @EventBusSubscriber(modid = "fxcore")
 public class FXBuildEvents {
+=======
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@EventBusSubscriber(modid = bz.fxcore.FXCore.MODID)
+public class FXBuildManager {
+
+    private static final Set<UUID> BUILD_MODE_PLAYERS = ConcurrentHashMap.newKeySet();
+
+    public static boolean isBuildMode(ServerPlayer player) {
+        return BUILD_MODE_PLAYERS.contains(player.getUUID());
+    }
+
+    public static void toggleBuildMode(ServerPlayer player, boolean enable) {
+        UUID uuid = player.getUUID();
+        if (enable) {
+            BUILD_MODE_PLAYERS.add(uuid);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(FXBuildConfig.DATA.buildEnableMsg));
+        } else {
+            BUILD_MODE_PLAYERS.remove(uuid);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(FXBuildConfig.DATA.buildDisableMsg));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            BUILD_MODE_PLAYERS.remove(player.getUUID());
+        }
+    }
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/build/FXBuildManager.java
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {

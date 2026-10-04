@@ -33,7 +33,14 @@ public class FXUnifyCommand {
                 if (!(context.getSource().getEntity() instanceof ServerPlayer player)) {
                     return 0;
                 }
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxunify/FXUnifyCommand.java
                 return openForPlayer(player, player, 0);
+=======
+                if (!GiveBManager.canAccessGiveback(player)) {
+                    return 0;
+                }
+                return openForPlayer(player, player.getUUID(), player.getScoreboardName(), 0);
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/giveback/GiveBCommand.java
             })
             .then(Commands.literal("view")
                 .requires(source -> source.hasPermission(2))
@@ -52,8 +59,21 @@ public class FXUnifyCommand {
                         ServerPlayer target = EntityArgument.getPlayer(context, "target");
                         FXUnifyManager.RECOVERABLE_DROPS.remove(target.getUUID());
                         
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxunify/FXUnifyCommand.java
                         String clearMsg = FXUnifyConfig.DATA.staffClearSuccessMessage
                             .replace("%player%", target.getScoreboardName());
+=======
+                        UUID targetUuid = PlayerDataManager.getUUIDByName(server, targetName);
+                        if (targetUuid == null) {
+                            context.getSource().sendFailure(Component.literal("§c[FXCore] O jogador '" + targetName + "' nunca entrou no servidor."));
+                            return 0;
+                        }
+
+                        GiveBManager.clearDrops(targetUuid);
+                        
+                        String clearMsg = GiveBConfig.DATA.staffClearSuccessMessage
+                            .replace("%player%", targetName);
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/giveback/GiveBCommand.java
                             
                         context.getSource().sendSuccess(() -> FXUnifyManager.parseColor(clearMsg), true);
                         return 1;
@@ -80,15 +100,19 @@ public class FXUnifyCommand {
         return 1;
     }
 
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxunify/FXUnifyCommand.java
     private static void openRecoveryMenu(ServerPlayer viewer, ServerPlayer owner, List<FXUnifyManager.StoredDrop> drops, int page) {
         int maxPages = (int) Math.ceil((double) drops.size() / ITEMS_PER_PAGE);
         int currentPage = Math.max(0, Math.min(page, maxPages - 1));
 
         SimpleContainer container = new SimpleContainer(54);
+=======
+    private static void populateContainer(SimpleContainer container, List<GiveBManager.StoredDrop> drops, int currentPage, int maxPages) {
+        container.clearContent();
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/giveback/GiveBCommand.java
         int startIndex = currentPage * ITEMS_PER_PAGE;
         int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, drops.size());
 
-        // Preenche os itens da página atual
         for (int i = startIndex; i < endIndex; i++) {
             FXUnifyManager.StoredDrop drop = drops.get(i);
             ItemStack displayStack = drop.item.copyWithCount((int) Math.min(drop.count, 64L));
@@ -99,7 +123,6 @@ public class FXUnifyCommand {
             container.setItem(i - startIndex, displayStack);
         }
 
-        // Painel de navegação (Linha inferior: slots 45 a 53)
         if (currentPage > 0) {
             ItemStack prev = new ItemStack(Items.ARROW);
             prev.set(DataComponents.CUSTOM_NAME, FXUnifyManager.parseColor("&e← Página Anterior"));
@@ -115,6 +138,14 @@ public class FXUnifyCommand {
             next.set(DataComponents.CUSTOM_NAME, FXUnifyManager.parseColor("&ePróxima Página →"));
             container.setItem(53, next);
         }
+    }
+
+    private static void openRecoveryMenu(ServerPlayer viewer, UUID ownerUuid, String ownerName, List<GiveBManager.StoredDrop> drops, int page) {
+        int maxPages = (int) Math.ceil((double) drops.size() / ITEMS_PER_PAGE);
+        int currentPage = Math.max(0, Math.min(page, maxPages - 1));
+
+        SimpleContainer container = new SimpleContainer(54);
+        populateContainer(container, drops, currentPage, maxPages);
 
         String rawTitle = viewer.getUUID().equals(owner.getUUID()) 
             ? FXUnifyConfig.DATA.playerGuiTitle 
@@ -128,9 +159,16 @@ public class FXUnifyCommand {
         viewer.openMenu(new net.minecraft.world.SimpleMenuProvider(
             (containerId, playerInventory, p) -> new ChestMenu(MenuType.GENERIC_9x6, containerId, playerInventory, container, 6) {
                 @Override
+                public ItemStack quickMoveStack(Player player, int index) {
+                    // Impede transferência de itens por shift-click para o SimpleContainer de resgate
+                    return ItemStack.EMPTY;
+                }
+
+                @Override
                 public void clicked(int slotId, int button, net.minecraft.world.inventory.ClickType clickType, Player clickPlayer) {
                     if (slotId >= 0 && slotId < 54) {
-                        
+                        int currentMaxPages = Math.max(1, (int) Math.ceil((double) drops.size() / ITEMS_PER_PAGE));
+
                         // Botão Página Anterior
                         if (slotId == 45 && currentPage > 0) {
                             openRecoveryMenu((ServerPlayer) clickPlayer, owner, drops, currentPage - 1);
@@ -138,13 +176,19 @@ public class FXUnifyCommand {
                         }
                         
                         // Botão Próxima Página
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxunify/FXUnifyCommand.java
                         if (slotId == 53 && currentPage < maxPages - 1) {
                             openRecoveryMenu((ServerPlayer) clickPlayer, owner, drops, currentPage + 1);
+=======
+                        if (slotId == 53 && currentPage < currentMaxPages - 1) {
+                            openRecoveryMenu((ServerPlayer) clickPlayer, ownerUuid, ownerName, drops, currentPage + 1);
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/giveback/GiveBCommand.java
                             return;
                         }
 
                         // Clique em um item recuperável
                         if (slotId < ITEMS_PER_PAGE) {
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxunify/FXUnifyCommand.java
                             int realIndex = startIndex + slotId;
                             if (realIndex < drops.size()) {
                                 FXUnifyManager.StoredDrop drop = drops.get(realIndex);
@@ -153,15 +197,54 @@ public class FXUnifyCommand {
                                 while (toGiveCount > 0) {
                                     int amount = (int) Math.min(toGiveCount, (long) drop.item.getMaxStackSize());
                                     ItemStack giveStack = drop.item.copyWithCount(amount);
+=======
+                            if (!viewer.getUUID().equals(ownerUuid)) {
+                                viewer.sendSystemMessage(Component.literal("§c[FXCore] Você está apenas visualizando o inventário deste jogador offline/online."));
+                                return;
+                            }
 
-                                    if (clickPlayer.getInventory().add(giveStack)) {
-                                        int given = amount - giveStack.getCount();
-                                        toGiveCount -= given;
-                                        if (given == 0) break;
+                            int realIndex = (currentPage * ITEMS_PER_PAGE) + slotId;
+                            synchronized (drops) {
+                                if (realIndex < drops.size()) {
+                                    GiveBManager.StoredDrop drop = drops.get(realIndex);
+                                    
+                                    long toGiveCount = drop.count;
+                                    while (toGiveCount > 0) {
+                                        int amount = (int) Math.min(toGiveCount, (long) drop.item.getMaxStackSize());
+                                        ItemStack giveStack = drop.item.copyWithCount(amount);
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/giveback/GiveBCommand.java
+
+                                        if (clickPlayer.getInventory().add(giveStack)) {
+                                            int given = amount - giveStack.getCount();
+                                            toGiveCount -= given;
+                                            if (given == 0) break;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+
+                                    drop.count = toGiveCount;
+                                    if (drop.count <= 0) {
+                                        drops.remove(realIndex);
+                                    }
+
+                                    if (drops.isEmpty()) {
+                                        GiveBManager.clearDrops(ownerUuid);
+                                        clickPlayer.closeContainer();
+                                        viewer.sendSystemMessage(GiveBManager.parseColor(GiveBConfig.DATA.emptyInventoryMessage));
+                                        return;
+                                    }
+
+                                    int updatedMaxPages = (int) Math.ceil((double) drops.size() / ITEMS_PER_PAGE);
+                                    int targetPage = Math.min(currentPage, updatedMaxPages - 1);
+                                    if (targetPage != currentPage) {
+                                        openRecoveryMenu((ServerPlayer) clickPlayer, ownerUuid, ownerName, drops, targetPage);
                                     } else {
-                                        break;
+                                        populateContainer(container, drops, targetPage, updatedMaxPages);
+                                        this.broadcastChanges();
                                     }
                                 }
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxunify/FXUnifyCommand.java
 
                                 drop.count = toGiveCount;
                                 if (drop.count <= 0) {
@@ -170,7 +253,10 @@ public class FXUnifyCommand {
 
                                 openRecoveryMenu((ServerPlayer) clickPlayer, owner, drops, currentPage);
                                 return;
+=======
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/giveback/GiveBCommand.java
                             }
+                            return;
                         }
                         return;
                     }

@@ -8,8 +8,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ChannelManager {
 
@@ -22,7 +22,7 @@ public class ChannelManager {
             .resolve("channels")
             .toFile();
 
-    public static final Map<String, ChatChannel> CHANNELS = new HashMap<>();
+    public static final Map<String, ChatChannel> CHANNELS = new ConcurrentHashMap<>();
 
     public static void loadChannels() {
         CHANNELS.clear();
@@ -54,6 +54,7 @@ public class ChannelManager {
     }
 
     public static void criarCanaisPadrao(File dir) {
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChannelManager.java
         salvarCanal(new ChatChannel(
                 "Local",
                 "l",
@@ -85,6 +86,12 @@ public class ChannelManager {
                 -1.0,
                 2
         ));
+=======
+        // Nome, Comando, Formato, Raio (-1 global), Permissão, Slow (segundos)
+        salvarCanal(new ChatChannel("Local", "l", "§e[L] {prefix}§f{player}§8: §f{msg}", 100.0, 0, 0.0));
+        salvarCanal(new ChatChannel("Global", "g", "§7[G] {prefix}§f{player}§8: §f{msg}", -1.0, 0, 3.0));
+        salvarCanal(new ChatChannel("Staff", "s", "§c[Staff] §f{player}§8: §c{msg}", -1.0, 2, 0.0));
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChannelManager.java
     }
 
     public static void salvarCanal(ChatChannel canal) {
@@ -111,4 +118,11 @@ public class ChannelManager {
         }
         return false;
     }
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChannelManager.java
+=======
+
+    public static void load() {
+        loadChannels();
+    }
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChannelManager.java
 }

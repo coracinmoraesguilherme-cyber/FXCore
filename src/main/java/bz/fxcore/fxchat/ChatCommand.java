@@ -1,10 +1,18 @@
 package bz.fxcore.fxchat;
 
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChatCommand.java
 import bz.fxcore.fxchat.ChannelManager;
 import bz.fxcore.fxchat.ChatChannel;
 import bz.fxcore.fxchat.ModConfig;
 import bz.fxcore.fxteam.TeamConfig;
 import bz.fxcore.fxteam.TeamManager;
+=======
+import bz.fxcore.core.database.FXPlayerData;
+import bz.fxcore.core.database.PlayerDataManager;
+import bz.fxcore.modules.team.TeamCommands;
+import bz.fxcore.modules.team.TeamData;
+import bz.fxcore.modules.team.TeamManager;
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChatCommand.java
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -16,17 +24,20 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.scores.PlayerTeam;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ChatCommand {
 
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChatCommand.java
     public static final Map<UUID, String> CANAL_ATUAL_JOGADOR = new HashMap<>();
     public static final Map<UUID, UUID> ULTIMA_CONVERSA = new HashMap<>();
     public static final Set<UUID> SPY_ATIVOS = new HashSet<>();
+=======
+    public static final Map<UUID, String> CANAL_ATUAL_JOGADOR = new ConcurrentHashMap<>();
+    public static final Map<UUID, UUID> ULTIMA_CONVERSA = new ConcurrentHashMap<>();
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChatCommand.java
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 
@@ -117,7 +128,7 @@ public class ChatCommand {
                                 .then(Commands.argument("raio", DoubleArgumentType.doubleArg(-1.0))
                                     .then(Commands.argument("permissao", IntegerArgumentType.integer(0, 4))
                                         .executes(context -> {
-                                            String nome = StringArgumentType.getString(context, "nome");
+                                             String nome = StringArgumentType.getString(context, "nome");
                                             String cmd = StringArgumentType.getString(context, "comando").toLowerCase();
                                             double raio = DoubleArgumentType.getDouble(context, "raio");
                                             int perm = IntegerArgumentType.getInteger(context, "permissao");
@@ -192,6 +203,7 @@ public class ChatCommand {
     public static void enviarMensagemPrivada(ServerPlayer remetente, ServerPlayer destinatario, String texto) {
         String msgColorida = formatarCores(texto);
 
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChatCommand.java
         String txtRemetente = ModConfig.MESSAGES.formatoTellRemetente
                 .replace("{destinatario}", destinatario.getScoreboardName())
                 .replace("{msg}", msgColorida);
@@ -199,6 +211,10 @@ public class ChatCommand {
         String txtDestinatario = ModConfig.MESSAGES.formatoTellDestinatario
                 .replace("{remetente}", remetente.getScoreboardName())
                 .replace("{msg}", msgColorida);
+=======
+        String txtRemetente = "§7[§6Eu §8-> §f" + destinatario.getScoreboardName() + "§7] §f" + msgColorida;
+        String txtDestinatario = "§7[§f" + remetente.getScoreboardName() + " §8-> §6Eu§7] §f" + msgColorida;
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChatCommand.java
 
         remetente.sendSystemMessage(Component.literal(txtRemetente));
         destinatario.sendSystemMessage(Component.literal(txtDestinatario));
@@ -210,6 +226,7 @@ public class ChatCommand {
     }
 
     public static void enviarParaSpies(ServerPlayer remetente, ServerPlayer destinatario, String texto) {
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChatCommand.java
         String txtSpy = ModConfig.MESSAGES.formatoSpy
                 .replace("{remetente}", remetente.getScoreboardName())
                 .replace("{destinatario}", destinatario.getScoreboardName())
@@ -220,6 +237,18 @@ public class ChatCommand {
         for (UUID spyUuid : SPY_ATIVOS) {
             ServerPlayer admin = remetente.server.getPlayerList().getPlayer(spyUuid);
             if (admin != null && !admin.getUUID().equals(remetente.getUUID()) && !admin.getUUID().equals(destinatario.getUUID())) {
+=======
+        String txtSpy = "§e[SPY] §7" + remetente.getScoreboardName() + " -> " + destinatario.getScoreboardName() + ": §f" + texto;
+        Component msgSpy = Component.literal(txtSpy);
+
+        for (ServerPlayer admin : remetente.server.getPlayerList().getPlayers()) {
+            if (admin.getUUID().equals(remetente.getUUID()) || admin.getUUID().equals(destinatario.getUUID())) {
+                continue;
+            }
+
+            FXPlayerData adminData = PlayerDataManager.get(admin.getUUID());
+            if (adminData != null && adminData.spyEnabled) {
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChatCommand.java
                 admin.sendSystemMessage(msgSpy);
             }
         }
@@ -231,6 +260,12 @@ public class ChatCommand {
 
         if (canal == null) {
             canal = ChannelManager.CHANNELS.get("l");
+        }
+        if (canal == null) {
+            canal = ChannelManager.CHANNELS.values().stream().findFirst().orElse(null);
+        }
+        if (canal == null) {
+            canal = new ChatChannel("Local", "l", "§e[L] {prefix}§f{player}§8: §f{msg}", 100.0, 0, 0.0);
         }
 
         PlayerTeam timeJogador = player.getTeam();
@@ -326,6 +361,15 @@ public class ChatCommand {
                             ouvintesProximos++;
                         }
                     }
+<<<<<<< Updated upstream:src/main/java/bz/fxcore/fxchat/ChatCommand.java
+=======
+                } else {
+                    FXPlayerData targetData = PlayerDataManager.get(destinatario.getUUID());
+                    if (targetData != null && targetData.spyEnabled) {
+                        Component spyMsg = Component.literal("§8[SPY-" + canal.getCommand().toUpperCase() + "] §7" + player.getScoreboardName() + ": §f" + mensagemColorida);
+                        destinatario.sendSystemMessage(spyMsg);
+                    }
+>>>>>>> Stashed changes:src/main/java/bz/fxcore/modules/chat/ChatCommand.java
                 }
             }
 

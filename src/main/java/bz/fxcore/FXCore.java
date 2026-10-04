@@ -1,11 +1,21 @@
 package bz.fxcore;
 
+<<<<<<< Updated upstream
 // AntiLag
 import bz.fxcore.fxantilag.ChunkLoadGuard;
 import bz.fxcore.fxantilag.DimensionUnloader;
 import bz.fxcore.fxantilag.FXAntiLagConfig;
 import bz.fxcore.fxantilag.FXCoreCommands;
 import bz.fxcore.fxantilag.SmartAFKFarm;
+=======
+import bz.fxcore.core.commands.CommandRegistry;
+import bz.fxcore.core.config.FXCoreConfig;
+import bz.fxcore.core.database.PlayerDataManager;
+import bz.fxcore.core.otimi.server.FXTaskExecutor;
+import bz.fxcore.modules.build.particles.ParticleShapeJson;
+import bz.fxcore.modules.chat.ChannelManager;
+import bz.fxcore.modules.team.TeamManager;
+>>>>>>> Stashed changes
 
 // Build
 import bz.fxcore.fxbuild.FXBuildCommands;
@@ -38,9 +48,16 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+<<<<<<< Updated upstream
 import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
+=======
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+>>>>>>> Stashed changes
 
 @Mod(FXCore.MODID)
 public class FXCore {
@@ -48,6 +65,7 @@ public class FXCore {
     public static final String MODID = "fxcore";
     public static final Logger LOGGER = LogUtils.getLogger();
 
+<<<<<<< Updated upstream
     public FXCore() {
         // Registra a própria classe de eventos centrais
         NeoForge.EVENT_BUS.register(this);
@@ -74,6 +92,45 @@ public class FXCore {
         LOGGER.info("==================================");
         LOGGER.info(" FXCore 1.21.1 Carregado com Sucesso!");
         LOGGER.info("==================================");
+=======
+    public FXCore(IEventBus modEventBus) {
+        modEventBus.addListener(this::setup);
+        ChannelManager.loadChannels();
+
+        NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
+        NeoForge.EVENT_BUS.addListener(this::onServerStopping);
+        ParticleShapeJson.loadShapes(net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get());
+    }
+
+    private void setup(final FMLCommonSetupEvent event) {
+        LOGGER.info("==============================================================");
+        LOGGER.info("");
+        LOGGER.info("  ________    __       _______   _______   ______    _______ ");
+        LOGGER.info(" |  ____\\ \\  / /      / ____| | |  __  | |  __  \\  |  ____|");
+        LOGGER.info(" | |__   \\ \\/ /      | |      | | |  | | | |__) | | |__    ");
+        LOGGER.info(" |  __|  /   \\       | |      | | |  | | |  _  /  |  __|   ");
+        LOGGER.info(" | |    / /\\  \\      | |____  | | |__| | | | \\ \\  | |____  ");
+        LOGGER.info(" |_|   /_/   \\_/      \\_____| |_|______/ |_|  \\_\\ |______| ");
+        LOGGER.info("");
+        LOGGER.info("                    FXCore Framework v2");
+        LOGGER.info("==============================================================");
+        LOGGER.info("");
+        LOGGER.info("[Modules]");
+        LOGGER.info(" + FXChat");
+        LOGGER.info(" + FXTeams");
+        LOGGER.info(" + FXClearItems");
+        LOGGER.info(" + FXStaff");
+        LOGGER.info(" + FXGiveBack");
+        LOGGER.info(" + FXBuild");
+        LOGGER.info(" + FXAFK");
+        LOGGER.info("");
+        LOGGER.info("[Status] Initializing...");
+        LOGGER.info("==============================================================");
+        
+        FXCoreConfig.load();
+        PlayerDataManager.init();
+        TeamManager.init();
+>>>>>>> Stashed changes
     }
 
     @SubscribeEvent
@@ -90,6 +147,7 @@ public class FXCore {
         FXBuildCommands.register(event.getDispatcher());
     }
 
+<<<<<<< Updated upstream
     @SubscribeEvent
     public void onServerChat(ServerChatEvent event) {
         ServerPlayer player = event.getPlayer();
@@ -104,5 +162,9 @@ public class FXCore {
     public void onServerTick(ServerTickEvent.Post event) {
         ClearItemsManager.onServerTick(event.getServer());
         FXServerManager.onServerTick(event.getServer());
+=======
+    private void onServerStopping(ServerStoppingEvent event) {
+        FXTaskExecutor.shutdown();
+>>>>>>> Stashed changes
     }
 }
